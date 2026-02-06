@@ -70,8 +70,13 @@ apex --lua-filter /path/to/unwrap.lua input.md > output.html
 
 If you prefer to install manually:
 
-1. Ensure you have a Lua interpreter and a JSON library available (for
-   example `dkjson` via `luarocks install dkjson`).
+1. Ensure you have a Lua interpreter and the `dkjson` JSON library
+   available. On macOS with Homebrew Lua, a typical setup is:
+
+   ```bash
+   brew install luarocks
+   luarocks install dkjson
+   ```
 2. Copy `unwrap.lua` into your filters directory:
 
    ```bash
