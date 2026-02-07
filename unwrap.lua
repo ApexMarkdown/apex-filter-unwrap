@@ -1,3 +1,4 @@
+#!/usr/bin/env lua
 -- apex-filter-unwrap: remove wrapping <p> for certain blocks
 --
 -- This Lua filter consumes / produces Pandoc-style JSON, as used by Apex.
@@ -211,6 +212,32 @@ local function unwrap_image_para(block)
   return image_to_raw_block(block.c[1]) or block
 end
 
+-- Return true if block is a container with exactly one child that is a RawBlock
+local function is_single_raw_container(blk)
+  if blk.t == "BlockQuote" and type(blk.c) == "table" and #blk.c == 1 then
+    return blk.c[1].t == "RawBlock"
+  end
+  if blk.t == "Div" and type(blk.c) == "table" and #blk.c >= 2 then
+    local inner = blk.c[2]
+    return type(inner) == "table" and #inner == 1 and inner[1].t == "RawBlock"
+  end
+  return false
+end
+
+-- Unwrap a container that has only one RawBlock child: return that RawBlock (so caller can splice it in)
+local function unwrap_single_raw_container(blk)
+  if blk.t == "BlockQuote" and type(blk.c) == "table" and #blk.c == 1 then
+    return blk.c[1]
+  end
+  if blk.t == "Div" and type(blk.c) == "table" and #blk.c >= 2 then
+    local inner = blk.c[2]
+    if type(inner) == "table" and #inner == 1 and inner[1].t == "RawBlock" then
+      return inner[1]
+    end
+  end
+  return nil
+end
+
 -- Recursively walk a list of blocks, unwrapping where appropriate
 local function walk_blocks(blocks)
   if type(blocks) ~= "table" then
@@ -229,15 +256,20 @@ local function walk_blocks(blocks)
       blk.c[3] = walk_blocks(blk.c[3])
     end
 
+    -- If container is now only a single RawBlock, output that RawBlock at top level (avoids parser losing div content)
+    if is_single_raw_container(blk) then
+      table.insert(out, unwrap_single_raw_container(blk))
     -- Angle-prefixed paragraphs
-    if is_angle_para(blk) then
+    elseif is_angle_para(blk) then
       blk = unwrap_angle_para(blk)
+      table.insert(out, blk)
     -- Single-image paragraphs
     elseif is_single_image_para(blk) then
       blk = unwrap_image_para(blk)
+      table.insert(out, blk)
+    else
+      table.insert(out, blk)
     end
-
-    table.insert(out, blk)
   end
 
   return out
